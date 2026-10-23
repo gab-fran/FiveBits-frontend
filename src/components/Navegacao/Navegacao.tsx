@@ -1,9 +1,9 @@
-import { type JSX, useState } from "react";
+import { type JSX, useState } from 'react';
 import { Menubar } from 'primereact/menubar';
 import type { MenuItem } from 'primereact/menuitem';
 import AuthRequests from '../../fetch/AuthRequests';
-import logoImg from "../../assets/logo.png";
-import "./Navegacao.css";
+import logoImg from '../../assets/logo.png';
+import './Navegacao.css';
 
 function Navegacao(): JSX.Element {
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -20,10 +20,14 @@ function Navegacao(): JSX.Element {
     };
 
     const items: MenuItem[] = [
-        { label: 'Home', icon: 'pi pi-home', url: isAuthenticated ? "/bem-vindo" : "/" },
-        { label: 'Paciente', icon: 'pi pi-users', url: "/lista/paciente" },
-        { label: 'Médico', icon: 'pi pi-user-plus', url: "/lista/medico" },
-        { label: 'Consulta', icon: 'pi pi-calendar', url: "/lista/consulta" }
+        {
+            label: 'Home',
+            icon: 'pi pi-home',
+            url: isAuthenticated ? '/bem-vindo' : '/',
+        },
+        { label: 'Paciente', icon: 'pi pi-users', url: '/lista/paciente' },
+        { label: 'Médico', icon: 'pi pi-user-plus', url: '/lista/medico' },
+        { label: 'Consulta', icon: 'pi pi-calendar', url: '/lista/consulta' },
     ];
 
     // Logo encapsulada para o lado esquerdo
@@ -47,7 +51,9 @@ function Navegacao(): JSX.Element {
                     </button>
                 </>
             ) : (
-                <a href="/login" className="btn-login-modern">Entrar</a>
+                <a href="/login" className="btn-login-modern">
+                    Entrar
+                </a>
             )}
         </div>
     );
@@ -55,7 +61,16 @@ function Navegacao(): JSX.Element {
     return (
         <header className="header-glass">
             <Menubar
-                model={isAuthenticated ? items : [items[0]]}
+                model={
+                    isAuthenticated
+                        ? items.filter(
+                              (item) =>
+                                  localStorage.getItem('role') !== 'MEDICO' ||
+                                  item.label === 'Home' ||
+                                  item.label === 'Consulta',
+                          )
+                        : [items[0]]
+                }
                 start={startSection}
                 end={endSection}
                 className="main-menubar"

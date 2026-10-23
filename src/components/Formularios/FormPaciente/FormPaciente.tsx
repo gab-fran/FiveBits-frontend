@@ -1,3 +1,7 @@
+import { parsePaciente } from '../../../validation/inputs';
+import { FieldErrors } from '../Validation/FormErrors';
+import { useFormErrors } from '../Validation/useFormErrors';
+import { AccountFields } from '../Validation/AccountFields';
 import { useState, type JSX } from 'react';
 import { Card } from 'primereact/card';
 import { Divider } from 'primereact/divider';
@@ -17,6 +21,8 @@ interface AlertaState {
 
 function FormPaciente(): JSX.Element {
     const navigate = useNavigate();
+    const validation = useFormErrors();
+    const [credenciais, setCredenciais] = useState({ email: '', senha: '' });
     const [formData, setFormData] = useState<PacienteDTO>({
         nome: '',
         cpf: '',
@@ -30,66 +36,52 @@ function FormPaciente(): JSX.Element {
         const { name, value } = e.target;
 
         if (name === 'cpf') {
-            setFormData(prev => ({ ...prev, [name]: Utilitario.formatarCpf(value) }));
+            setFormData((prev) => ({
+                ...prev,
+                [name]: Utilitario.formatarCpf(value),
+            }));
             return;
         }
 
         if (name === 'telefone') {
             const telefoneFormatado = Utilitario.formatarTelefone(value);
-            setFormData(prev => ({ ...prev, [name]: telefoneFormatado }));
+            setFormData((prev) => ({ ...prev, [name]: telefoneFormatado }));
             return;
         }
 
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
+    const validarFormulario = () =>
+        parsePaciente({ ...formData, ...credenciais }, true);
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (salvando) return;
+        validation.clear();
         setAlerta(null);
-
-        const paciente: PacienteDTO = {
-            nome: formData.nome.trim(),
-            cpf: formData.cpf.replace(/\D/g, ''),
-            telefone: formData.telefone?.replace(/\D/g, '') || undefined,
-            dataNascimento: formData.dataNascimento,
-        };
-
-        if (paciente.cpf.length !== 11) {
-            setAlerta({
-                variant: 'warning',
-                title: 'CPF Incompleto',
-                message: 'O CPF deve conter 11 números.',
-            });
-            return;
-        }
-
-        setSalvando(true);
         try {
-            const resposta = await PacienteRequest.enviarFormularioPaciente(paciente);
-            if (resposta) {
-                navigate(`/lista/paciente`, {
-                    state: {
-                        alerta: {
-                            variant: 'success',
-                            title: 'Paciente Cadastrado',
-                            message: 'Paciente cadastrado com sucesso!',
-                            type: 'toast',
-                        }
-                    }
-                });
-            } else {
-                setAlerta({
-                    variant: 'danger',
-                    title: 'Erro de Cadastro',
-                    message: 'Erro ao cadastrar paciente.',
-                });
-            }
+            const { account, ...paciente } = validarFormulario();
+            setSalvando(true);
+            await PacienteRequest.enviarFormularioPaciente({
+                ...paciente,
+                ...account!,
+            });
+            const admin = localStorage.getItem('role') === 'ADMIN';
+            navigate(admin ? '/lista/paciente' : '/login', {
+                state: {
+                    alerta: {
+                        variant: 'success',
+                        message:
+                            'Cadastro realizado com sucesso! Faça login para continuar.',
+                        type: 'toast',
+                    },
+                },
+            });
         } catch (error) {
-            const mensagem = error instanceof Error ? error.message : "Erro desconhecido";
             setAlerta({
                 variant: 'danger',
-                title: 'Erro no Servidor',
-                message: `Não foi possível cadastrar o paciente: ${mensagem}`,
+                title: 'Verifique os dados',
+                message: validation.capture(error),
             });
         } finally {
             setSalvando(false);
@@ -97,7 +89,9 @@ function FormPaciente(): JSX.Element {
     };
 
     return (
-        <main className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}>
+        <main
+            className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}
+        >
             {alerta && (
                 <AlertCard
                     variant={alerta.variant}
@@ -107,31 +101,43 @@ function FormPaciente(): JSX.Element {
                     onClose={() => setAlerta(null)}
                 />
             )}
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
                 <div className={styles.cardContainer}>
                     <Card className={styles.detailsCard}>
                         <div className={styles.cardContent}>
                             {/* Cabeçalho */}
                             <div className={styles.detailsHeader}>
-                                <h2 className={styles.headerTitle}>Cadastro de Paciente</h2>
+                                <h2 className={styles.headerTitle}>
+                                    Cadastro de Paciente
+                                </h2>
                                 <div className={styles.headerSubtitle}>
-                                    <span>Preencha os dados abaixo para registrar um novo paciente.</span>
+                                    <span>
+                                        Preencha os dados abaixo para registrar
+                                        um novo paciente.
+                                    </span>
                                 </div>
                             </div>
 
                             <Divider className="my-3" />
 
                             {/* Grid */}
-                            <div className={`${styles.infoGrid} ${styles.singleColumnGrid}`}>
+                            <div
+                                className={`${styles.infoGrid} ${styles.singleColumnGrid}`}
+                            >
                                 <div className={styles.infoSection}>
                                     <h3 className={styles.sectionTitle}>
-                                        <i className="pi pi-user text-green-500 text-sm"></i>
-                                        {" "}Informações Pessoais
+                                        <i className="pi pi-user text-green-500 text-sm"></i>{' '}
+                                        Informações Pessoais
                                     </h3>
 
                                     <div className={styles.sectionText}>
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>Nome Completo</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="nome"
+                                            >
+                                                Nome Completo
+                                            </label>
                                             <input
                                                 type="text"
                                                 name="nome"
@@ -142,11 +148,25 @@ function FormPaciente(): JSX.Element {
                                                 onChange={handleChange}
                                                 placeholder="Digite o nome"
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'nome',
+                                                    validarFormulario,
+                                                )}
+                                                maxLength={50}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="nome"
                                             />
                                         </div>
 
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>CPF</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="cpf"
+                                            >
+                                                CPF
+                                            </label>
                                             <input
                                                 type="text"
                                                 name="cpf"
@@ -157,24 +177,52 @@ function FormPaciente(): JSX.Element {
                                                 onChange={handleChange}
                                                 placeholder="000.000.000-00"
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'cpf',
+                                                    validarFormulario,
+                                                )}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="cpf"
                                             />
                                         </div>
 
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>Data de Nascimento</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="dataNascimento"
+                                            >
+                                                Data de Nascimento
+                                            </label>
                                             <input
                                                 type="date"
                                                 name="dataNascimento"
                                                 id="dataNascimento"
                                                 required
-                                                value={String(formData.dataNascimento)}
+                                                value={String(
+                                                    formData.dataNascimento,
+                                                )}
                                                 onChange={handleChange}
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'dataNascimento',
+                                                    validarFormulario,
+                                                )}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="dataNascimento"
                                             />
                                         </div>
 
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>Telefone</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="telefone"
+                                            >
+                                                Telefone
+                                            </label>
                                             <input
                                                 type="tel"
                                                 name="telefone"
@@ -183,6 +231,15 @@ function FormPaciente(): JSX.Element {
                                                 onChange={handleChange}
                                                 placeholder="(xx) x xxxx-xxxx"
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'telefone',
+                                                    validarFormulario,
+                                                )}
+                                                maxLength={20}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="telefone"
                                             />
                                         </div>
                                     </div>
@@ -191,6 +248,14 @@ function FormPaciente(): JSX.Element {
                         </div>
                     </Card>
 
+                    <AccountFields
+                        value={credenciais}
+                        onChange={setCredenciais}
+                        errors={validation.errors}
+                        fieldProps={(name) =>
+                            validation.field(name, validarFormulario)
+                        }
+                    />
                     {/* Botões */}
                     <div className={styles.buttonGroup}>
                         <button
@@ -204,7 +269,13 @@ function FormPaciente(): JSX.Element {
                         <button
                             type="button"
                             className={styles.buttonSecondary}
-                            onClick={() => navigate(`/lista/paciente`)}
+                            onClick={() =>
+                                navigate(
+                                    localStorage.getItem('role') === 'ADMIN'
+                                        ? '/lista/paciente'
+                                        : '/login',
+                                )
+                            }
                         >
                             Voltar
                         </button>
@@ -216,4 +287,3 @@ function FormPaciente(): JSX.Element {
 }
 
 export default FormPaciente;
-

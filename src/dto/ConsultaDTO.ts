@@ -1,6 +1,7 @@
 export interface ConsultaDTO {
     idConsulta?: number;
-    dataHora: Date;
+    dataHora: string;
+    duracaoMinutos: number;
     status?: 'Pendente' | 'Confirmado' | 'Cancelado' | 'Concluido';
     modalidade?: 'Pessoalmente' | 'Telemedicina';
     triagemSintomas: string;
@@ -11,7 +12,7 @@ export interface ConsultaDTO {
         nomePaciente: string;
         cpf: string;
         telefone?: string;
-        dataNascimento: Date;
+        dataNascimento: string;
         situacao?: boolean;
     };
 

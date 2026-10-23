@@ -1,3 +1,6 @@
+import { parsePaciente } from '../../../validation/inputs';
+import { FieldErrors } from '../Validation/FormErrors';
+import { useFormErrors } from '../Validation/useFormErrors';
 import { useEffect, useState, type JSX } from 'react';
 import { Card } from 'primereact/card';
 import { Divider } from 'primereact/divider';
@@ -38,8 +41,11 @@ function formatarDataParaInput(data: Date | string): string {
     return dataConvertida.toISOString().slice(0, 10);
 }
 
-function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.Element {
+function FormAtualizarPaciente({
+    idPaciente,
+}: FormAtualizarPacienteProps): JSX.Element {
     const navigate = useNavigate();
+    const validation = useFormErrors();
     const [formData, setFormData] = useState<PacienteDTO>({
         nome: '',
         cpf: '',
@@ -54,7 +60,8 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
     useEffect(() => {
         async function carregarPaciente() {
             try {
-                const paciente = await PacienteRequest.obterPacientePorId(idPaciente);
+                const paciente =
+                    await PacienteRequest.obterPacientePorId(idPaciente);
                 if (!paciente) {
                     setErro('Paciente não encontrado.');
                     return;
@@ -63,8 +70,12 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
                 setFormData({
                     ...paciente,
                     cpf: Utilitario.formatarCpf(paciente.cpf),
-                    telefone: paciente.telefone ? Utilitario.formatarTelefone(paciente.telefone) : '',
-                    dataNascimento: formatarDataParaInput(paciente.dataNascimento),
+                    telefone: paciente.telefone
+                        ? Utilitario.formatarTelefone(paciente.telefone)
+                        : '',
+                    dataNascimento: formatarDataParaInput(
+                        paciente.dataNascimento,
+                    ),
                 });
             } catch {
                 setErro('Não foi possível carregar os dados do paciente.');
@@ -78,82 +89,64 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
-            [name]: name === 'cpf'
-                ? Utilitario.formatarCpf(value)
-                : name === 'telefone'
-                    ? Utilitario.formatarTelefone(value)
-                    : value,
+            [name]:
+                name === 'cpf'
+                    ? Utilitario.formatarCpf(value)
+                    : name === 'telefone'
+                      ? Utilitario.formatarTelefone(value)
+                      : value,
         }));
     };
 
+    const validarFormulario = () =>
+        parsePaciente({
+            nome: formData.nome,
+            cpf: formData.cpf,
+            telefone: formData.telefone,
+            dataNascimento: formData.dataNascimento,
+        });
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (salvando) return;
+        validation.clear();
         setAlerta(null);
-
-        if (!Number.isInteger(idPaciente) || idPaciente <= 0) {
-            setAlerta({
-                variant: 'danger',
-                title: 'Erro de Identificação',
-                message: 'Identificador do paciente é inválido.',
-            });
-            return;
-        }
-
-        const cpf = formData.cpf.replace(/\D/g, '');
-
-        if (cpf.length !== 11) {
-            setAlerta({
-                variant: 'warning',
-                title: 'CPF Incompleto',
-                message: 'O CPF deve conter exatamente 11 dígitos numéricos.',
-            });
-            return;
-        }
-
-        const dataNascimento = String(formData.dataNascimento).trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dataNascimento)) {
-            setAlerta({
-                variant: 'warning',
-                title: 'Data Inválida',
-                message: 'Informe uma data de nascimento válida.',
-            });
-            return;
-        }
-
-        setSalvando(true);
-        const resposta = await PacienteRequest.atualizarPaciente(idPaciente, {
-            nome: formData.nome.trim(),
-            cpf,
-            telefone: formData.telefone?.replace(/\D/g, '') || undefined,
-            dataNascimento,
-        });
-        setSalvando(false);
-
-        if (resposta.sucesso) {
+        try {
+            const parsed = validarFormulario();
+            const data = {
+                nome: parsed.nome,
+                cpf: parsed.cpf,
+                telefone: parsed.telefone,
+                dataNascimento: parsed.dataNascimento,
+            };
+            setSalvando(true);
+            await PacienteRequest.atualizarPaciente(idPaciente, data);
             navigate(`/detalhes/paciente/${idPaciente}`, {
                 state: {
                     alerta: {
                         variant: 'success',
-                        title: 'Atualização Concluída',
-                        message: 'Os dados do paciente foram atualizados com sucesso!',
+                        message: 'Dados atualizados com sucesso!',
                         type: 'toast',
-                    }
-                }
+                    },
+                },
             });
-        } else {
+        } catch (error) {
             setAlerta({
                 variant: 'danger',
-                title: 'Falha na Atualização',
-                message: resposta.mensagem || 'Ocorreu um erro ao atualizar o paciente.',
+                title: 'Verifique os dados',
+                message: validation.capture(error),
             });
+        } finally {
+            setSalvando(false);
         }
     };
 
     if (carregando) {
         return (
-            <main className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}>
+            <main
+                className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}
+            >
                 <p>Carregando dados do paciente...</p>
             </main>
         );
@@ -161,7 +154,9 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
 
     if (erro) {
         return (
-            <main className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}>
+            <main
+                className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}
+            >
                 <div className={styles.cardContainer}>
                     <AlertCard
                         variant="danger"
@@ -177,7 +172,9 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
     }
 
     return (
-        <main className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}>
+        <main
+            className={`${styles.detailsWrapper} ${styles.centeredFormWrapper}`}
+        >
             {alerta && (
                 <div style={{ marginBottom: '1.25rem' }}>
                     <AlertCard
@@ -189,31 +186,43 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
                     />
                 </div>
             )}
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
                 <div className={styles.cardContainer}>
                     <Card className={styles.detailsCard}>
                         <div className={styles.cardContent}>
                             {/* Cabeçalho */}
                             <div className={styles.detailsHeader}>
-                                <h2 className={styles.headerTitle}>Atualização de Paciente</h2>
+                                <h2 className={styles.headerTitle}>
+                                    Atualização de Paciente
+                                </h2>
                                 <div className={styles.headerSubtitle}>
-                                    <span>Altere os dados abaixo e salve as informações do paciente.</span>
+                                    <span>
+                                        Altere os dados abaixo e salve as
+                                        informações do paciente.
+                                    </span>
                                 </div>
                             </div>
 
                             <Divider className="my-3" />
 
                             {/* Grid */}
-                            <div className={`${styles.infoGrid} ${styles.singleColumnGrid}`}>
+                            <div
+                                className={`${styles.infoGrid} ${styles.singleColumnGrid}`}
+                            >
                                 <div className={styles.infoSection}>
                                     <h3 className={styles.sectionTitle}>
-                                        <i className="pi pi-user text-green-500 text-sm"></i>
-                                        {" "}Informações Pessoais
+                                        <i className="pi pi-user text-green-500 text-sm"></i>{' '}
+                                        Informações Pessoais
                                     </h3>
 
                                     <div className={styles.sectionText}>
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>Nome Completo</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="nome"
+                                            >
+                                                Nome Completo
+                                            </label>
                                             <input
                                                 type="text"
                                                 name="nome"
@@ -224,11 +233,25 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
                                                 onChange={handleChange}
                                                 placeholder="Digite o nome"
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'nome',
+                                                    validarFormulario,
+                                                )}
+                                                maxLength={50}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="nome"
                                             />
                                         </div>
 
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>CPF</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="cpf"
+                                            >
+                                                CPF
+                                            </label>
                                             <input
                                                 type="text"
                                                 name="cpf"
@@ -239,24 +262,52 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
                                                 onChange={handleChange}
                                                 placeholder="000.000.000-00"
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'cpf',
+                                                    validarFormulario,
+                                                )}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="cpf"
                                             />
                                         </div>
 
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>Data de Nascimento</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="dataNascimento"
+                                            >
+                                                Data de Nascimento
+                                            </label>
                                             <input
                                                 type="date"
                                                 name="dataNascimento"
                                                 id="dataNascimento"
                                                 required
-                                                value={String(formData.dataNascimento)}
+                                                value={String(
+                                                    formData.dataNascimento,
+                                                )}
                                                 onChange={handleChange}
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'dataNascimento',
+                                                    validarFormulario,
+                                                )}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="dataNascimento"
                                             />
                                         </div>
 
                                         <div className={styles.fieldGroup}>
-                                            <span className={styles.fieldLabel}>Telefone</span>
+                                            <label
+                                                className={styles.fieldLabel}
+                                                htmlFor="telefone"
+                                            >
+                                                Telefone
+                                            </label>
                                             <input
                                                 type="tel"
                                                 name="telefone"
@@ -265,6 +316,15 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
                                                 onChange={handleChange}
                                                 placeholder="(xx) x xxxx-xxxx"
                                                 className={styles.fieldInput}
+                                                {...validation.field(
+                                                    'telefone',
+                                                    validarFormulario,
+                                                )}
+                                                maxLength={20}
+                                            />
+                                            <FieldErrors
+                                                errors={validation.errors}
+                                                name="telefone"
                                             />
                                         </div>
                                     </div>
@@ -286,7 +346,9 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
                         <button
                             type="button"
                             className={styles.buttonSecondary}
-                            onClick={() => navigate(`/detalhes/paciente/${idPaciente}`)}
+                            onClick={() =>
+                                navigate(`/detalhes/paciente/${idPaciente}`)
+                            }
                         >
                             Voltar
                         </button>
@@ -298,4 +360,3 @@ function FormAtualizarPaciente({ idPaciente }: FormAtualizarPacienteProps): JSX.
 }
 
 export default FormAtualizarPaciente;
-

@@ -1,16 +1,20 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { consultaPayload } from '../../../fetch/ConsultaRequest';
+import { FieldErrors } from '../Validation/FormErrors';
+import { useFormErrors } from '../Validation/useFormErrors';
+import Utilitario from '../../../utils/Utilitario';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import ConsultaRequest from "../../../fetch/ConsultaRequest";
-import MedicoRequests from "../../../fetch/MedicoRequest";
-import PacienteRequests from "../../../fetch/PacienteRequest";
-import { AlertCard, type AlertVariant } from "../../AlertCard";
+import ConsultaRequest from '../../../fetch/ConsultaRequest';
+import MedicoRequests from '../../../fetch/MedicoRequest';
+import PacienteRequests from '../../../fetch/PacienteRequest';
+import { AlertCard, type AlertVariant } from '../../AlertCard';
 
-import styles from "../../../styles/DetalhesPadrao.module.css";
+import styles from '../../../styles/DetalhesPadrao.module.css';
 
-import type { ConsultaDTO } from "../../../dto/ConsultaDTO";
-import type { MedicoDTO } from "../../../dto/MedicoDTO";
-import type { PacienteDTO } from "../../../dto/PacienteDTO";
+import type { ConsultaDTO } from '../../../dto/ConsultaDTO';
+import type { MedicoDTO } from '../../../dto/MedicoDTO';
+import type { PacienteDTO } from '../../../dto/PacienteDTO';
 
 interface FormConsultaProps {
     idConsulta?: number;
@@ -25,6 +29,8 @@ interface AlertaState {
 
 function FormConsulta({ idConsulta }: FormConsultaProps) {
     const navigate = useNavigate();
+    const validation = useFormErrors();
+    const [salvando, setSalvando] = useState(false);
 
     const [listaPacientes, setListaPacientes] = useState<PacienteDTO[]>([]);
     const [listaMedicos, setListaMedicos] = useState<MedicoDTO[]>([]);
@@ -33,46 +39,87 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
     const modoEdicao = idConsulta !== undefined;
 
     const [formData, setFormData] = useState<ConsultaDTO>({
-        dataHora: new Date(),
-        status: "Pendente",
-        modalidade: "Pessoalmente",
-        triagemSintomas: "",
+        dataHora: '',
+        duracaoMinutos: 0,
+        status: 'Pendente',
+        modalidade: 'Pessoalmente',
+        triagemSintomas: '',
         situacao: true,
 
         paciente: {
             idPaciente: 0,
-            nomePaciente: "",
-            cpf: "",
-            telefone: "",
-            dataNascimento: new Date(),
-            situacao: true
+            nomePaciente: '',
+            cpf: '',
+            telefone: '',
+            dataNascimento: '',
+            situacao: true,
         },
 
         medico: {
             idMedico: 0,
-            nomeMedico: "",
-            crm: "",
-            especialidade: "",
+            nomeMedico: '',
+            crm: '',
+            especialidade: '',
             valorConsulta: 0,
-            situacao: true
-        }
+            situacao: true,
+        },
     });
 
     useEffect(() => {
         async function carregarDados() {
             setCarregando(true);
 
-            const [pacientes, medicos, consulta] = await Promise.all([
-                PacienteRequests.obterListaDePacientes(),
-                MedicoRequests.obterListaDeMedicos(),
-                modoEdicao ? ConsultaRequest.obterConsultaPorId(idConsulta) : Promise.resolve(undefined)
-            ]);
+            try {
+                const [pacientes, medicos, consulta] = await Promise.all([
+                    localStorage.getItem('role') === 'MEDICO'
+                        ? Promise.resolve([] as PacienteDTO[])
+                        : PacienteRequests.obterListaDePacientes(),
+                    MedicoRequests.obterListaDeMedicos(),
+                    modoEdicao
+                        ? ConsultaRequest.obterConsultaPorId(idConsulta)
+                        : Promise.resolve(undefined),
+                ]);
 
-            if (pacientes) setListaPacientes(pacientes as PacienteDTO[]);
-            if (medicos) setListaMedicos(medicos as MedicoDTO[]);
-            if (consulta) setFormData(consulta as ConsultaDTO);
-
-            setCarregando(false);
+                if (pacientes) {
+                    setListaPacientes(pacientes);
+                    if (
+                        !modoEdicao &&
+                        localStorage.getItem('role') === 'PACIENTE' &&
+                        pacientes[0]?.idPaciente
+                    ) {
+                        setFormData((current) => ({
+                            ...current,
+                            paciente: {
+                                ...current.paciente,
+                                idPaciente: pacientes[0]!.idPaciente!,
+                            },
+                        }));
+                    }
+                }
+                if (medicos) setListaMedicos(medicos as MedicoDTO[]);
+                if (consulta) {
+                    setFormData(consulta);
+                    if (localStorage.getItem('role') === 'MEDICO')
+                        setListaPacientes([
+                            {
+                                idPaciente: consulta.paciente.idPaciente,
+                                nome: consulta.paciente.nomePaciente,
+                                cpf: consulta.paciente.cpf,
+                                telefone: consulta.paciente.telefone,
+                                dataNascimento:
+                                    consulta.paciente.dataNascimento,
+                            },
+                        ]);
+                }
+            } catch {
+                setAlerta({
+                    variant: 'danger',
+                    message:
+                        'Não foi possível carregar os dados. Tente novamente.',
+                });
+            } finally {
+                setCarregando(false);
+            }
         }
 
         carregarDados();
@@ -81,83 +128,82 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
     const handleChange = (
         e: React.ChangeEvent<
             HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-        >
+        >,
     ) => {
         const { name, value } = e.target;
 
-        if (name === "idPaciente") {
-            setFormData(prev => ({
+        if (name === 'idPaciente') {
+            setFormData((prev) => ({
                 ...prev,
                 paciente: {
                     ...prev.paciente,
-                    idPaciente: Number(value)
-                }
+                    idPaciente: Number(value),
+                },
             }));
-        } else if (name === "idMedico") {
-            setFormData(prev => ({
+        } else if (name === 'idMedico') {
+            setFormData((prev) => ({
                 ...prev,
                 medico: {
                     ...prev.medico,
-                    idMedico: Number(value)
-                }
+                    idMedico: Number(value),
+                },
             }));
-        } else if (name === "dataHora") {
-            setFormData(prev => ({
+        } else if (name === 'dataHora') {
+            setFormData((prev) => ({
                 ...prev,
-                dataHora: new Date(value)
+                dataHora: value ? `${value}:00-03:00` : '',
             }));
         } else {
-            setFormData(prev => ({
+            setFormData((prev) => ({
                 ...prev,
-                [name]: value
+                [name]: name === 'duracaoMinutos' ? Number(value) : value,
             }));
         }
     };
 
-    const handleSubmit = async (
-        e: React.FormEvent<HTMLFormElement>
-    ) => {
+    const validarFormulario = () => consultaPayload(formData, modoEdicao);
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (salvando) return;
+        validation.clear();
         setAlerta(null);
-
         try {
-            const resposta = modoEdicao
-                ? await ConsultaRequest.atualizarConsulta(formData)
-                : await ConsultaRequest.enviarFormularioConsulta(formData);
-
-            if (resposta) {
-                navigate("/lista/consulta", {
-                    state: {
-                        alerta: {
-                            variant: 'success',
-                            title: modoEdicao ? "Consulta Atualizada" : "Consulta Agendada",
-                            message: modoEdicao ? "Consulta atualizada com sucesso!" : "Consulta cadastrada com sucesso!",
-                            type: 'toast',
-                        }
-                    }
-                });
-            } else {
-                setAlerta({
-                    variant: 'danger',
-                    title: 'Erro na Operação',
-                    message: modoEdicao ? "Erro ao atualizar consulta!" : "Erro ao cadastrar consulta!",
-                });
-            }
+            validarFormulario();
+            setSalvando(true);
+            if (modoEdicao) await ConsultaRequest.atualizarConsulta(formData);
+            else await ConsultaRequest.enviarFormularioConsulta(formData);
+            navigate('/lista/consulta', {
+                state: {
+                    alerta: {
+                        variant: 'success',
+                        message: modoEdicao
+                            ? 'Consulta atualizada com sucesso!'
+                            : 'Consulta agendada com sucesso!',
+                        type: 'toast',
+                    },
+                },
+            });
         } catch (error) {
-            const mensagem = error instanceof Error ? error.message : "Erro desconhecido";
-            const acao = modoEdicao ? "atualizar" : "cadastrar";
             setAlerta({
                 variant: 'danger',
-                title: 'Erro no Servidor',
-                message: `Não foi possível ${acao} a consulta: ${mensagem}`,
+                title: 'Verifique os dados',
+                message: validation.capture(error),
             });
+        } finally {
+            setSalvando(false);
         }
     };
 
     return (
         <main className={styles.detailsWrapper}>
             {alerta && (
-                <div style={{ marginBottom: '1.25rem', maxWidth: '800px', marginInline: 'auto' }}>
+                <div
+                    style={{
+                        marginBottom: '1.25rem',
+                        maxWidth: '800px',
+                        marginInline: 'auto',
+                    }}
+                >
                     <AlertCard
                         variant={alerta.variant}
                         type={alerta.type || 'toast'}
@@ -170,62 +216,93 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
             {carregando ? (
                 <p>Carregando dados...</p>
             ) : (
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} noValidate>
                     <div className={styles.cardContainer}>
-
                         <div className={styles.detailsCard}>
                             <div className={styles.cardContent}>
-
                                 {/* Cabeçalho */}
                                 <div className={styles.detailsHeader}>
                                     <h2 className={styles.headerTitle}>
-                                        {modoEdicao ? "Atualização de Consulta" : "Cadastro de Consulta"}
+                                        {modoEdicao
+                                            ? 'Atualização de Consulta'
+                                            : 'Cadastro de Consulta'}
                                     </h2>
 
                                     <div className={styles.headerSubtitle}>
                                         <span>
                                             {modoEdicao
-                                                ? "Altere os dados abaixo e salve as informações da consulta."
-                                                : "Preencha os dados abaixo para registrar uma nova consulta."}
+                                                ? 'Altere os dados abaixo e salve as informações da consulta.'
+                                                : 'Preencha os dados abaixo para registrar uma nova consulta.'}
                                         </span>
                                     </div>
                                 </div>
 
                                 <div className={styles.infoGrid}>
-
                                     {/* Paciente */}
                                     <div className={styles.infoSection}>
                                         <h3 className={styles.sectionTitle}>
-                                            <i className="pi pi-user text-green-500 text-sm"></i>
-                                            {" "}Paciente
+                                            <i className="pi pi-user text-green-500 text-sm"></i>{' '}
+                                            Paciente
                                         </h3>
 
                                         <div className={styles.sectionText}>
                                             <div className={styles.fieldGroup}>
-                                                <span className={styles.fieldLabel}>
+                                                <label
+                                                    className={
+                                                        styles.fieldLabel
+                                                    }
+                                                    htmlFor="idPaciente"
+                                                >
                                                     Paciente
-                                                </span>
+                                                </label>
 
                                                 <select
+                                                    id="idPaciente"
                                                     name="idPaciente"
+                                                    disabled={
+                                                        modoEdicao ||
+                                                        localStorage.getItem(
+                                                            'role',
+                                                        ) === 'PACIENTE'
+                                                    }
                                                     required
-                                                    value={formData.paciente.idPaciente || ""}
+                                                    value={
+                                                        formData.paciente
+                                                            .idPaciente || ''
+                                                    }
                                                     onChange={handleChange}
-                                                    className={styles.fieldInput}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    {...validation.field(
+                                                        'idPaciente',
+                                                        validarFormulario,
+                                                    )}
                                                 >
                                                     <option value="">
                                                         Selecione um paciente
                                                     </option>
 
-                                                    {listaPacientes.map((paciente) => (
-                                                        <option
-                                                            key={paciente.idPaciente}
-                                                            value={paciente.idPaciente}
-                                                        >
-                                                            {paciente.nome} - {paciente.cpf}
-                                                        </option>
-                                                    ))}
+                                                    {listaPacientes.map(
+                                                        (paciente) => (
+                                                            <option
+                                                                key={
+                                                                    paciente.idPaciente
+                                                                }
+                                                                value={
+                                                                    paciente.idPaciente
+                                                                }
+                                                            >
+                                                                {paciente.nome}{' '}
+                                                                - {paciente.cpf}
+                                                            </option>
+                                                        ),
+                                                    )}
                                                 </select>
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="idPaciente"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -233,36 +310,64 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
                                     {/* Médico */}
                                     <div className={styles.infoSection}>
                                         <h3 className={styles.sectionTitle}>
-                                            <i className="pi pi-briefcase text-orange-500 text-sm"></i>
-                                            {" "}Médico
+                                            <i className="pi pi-briefcase text-orange-500 text-sm"></i>{' '}
+                                            Médico
                                         </h3>
 
                                         <div className={styles.sectionText}>
                                             <div className={styles.fieldGroup}>
-                                                <span className={styles.fieldLabel}>
+                                                <label
+                                                    className={
+                                                        styles.fieldLabel
+                                                    }
+                                                    htmlFor="idMedico"
+                                                >
                                                     Médico
-                                                </span>
+                                                </label>
 
                                                 <select
+                                                    id="idMedico"
                                                     name="idMedico"
                                                     required
-                                                    value={formData.medico.idMedico || ""}
+                                                    value={
+                                                        formData.medico
+                                                            .idMedico || ''
+                                                    }
                                                     onChange={handleChange}
-                                                    className={styles.fieldInput}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    {...validation.field(
+                                                        'idMedico',
+                                                        validarFormulario,
+                                                    )}
                                                 >
                                                     <option value="">
                                                         Selecione um médico
                                                     </option>
 
-                                                    {listaMedicos.map((medico) => (
-                                                        <option
-                                                            key={medico.idMedico}
-                                                            value={medico.idMedico}
-                                                        >
-                                                            {medico.nome} - {medico.especialidade}
-                                                        </option>
-                                                    ))}
+                                                    {listaMedicos.map(
+                                                        (medico) => (
+                                                            <option
+                                                                key={
+                                                                    medico.idMedico
+                                                                }
+                                                                value={
+                                                                    medico.idMedico
+                                                                }
+                                                            >
+                                                                {medico.nome} -{' '}
+                                                                {
+                                                                    medico.especialidade
+                                                                }
+                                                            </option>
+                                                        ),
+                                                    )}
                                                 </select>
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="idMedico"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -270,37 +375,95 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
                                     {/* Dados da Consulta */}
                                     <div className={styles.infoSection}>
                                         <h3 className={styles.sectionTitle}>
-                                            <i className="pi pi-calendar text-blue-500 text-sm"></i>
-                                            {" "}Dados da Consulta
+                                            <i className="pi pi-calendar text-blue-500 text-sm"></i>{' '}
+                                            Dados da Consulta
                                         </h3>
 
                                         <div className={styles.sectionText}>
-
                                             <div className={styles.fieldGroup}>
-                                                <span className={styles.fieldLabel}>
+                                                <label
+                                                    className={
+                                                        styles.fieldLabel
+                                                    }
+                                                    htmlFor="dataHora"
+                                                >
                                                     Data e Hora
-                                                </span>
+                                                </label>
 
                                                 <input
+                                                    id="dataHora"
                                                     type="datetime-local"
                                                     name="dataHora"
                                                     required
-                                                    value={new Date(formData.dataHora).toISOString().slice(0, 16)}
+                                                    value={Utilitario.formatarDataHoraInput(
+                                                        formData.dataHora,
+                                                    )}
                                                     onChange={handleChange}
-                                                    className={styles.fieldInput}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    {...validation.field(
+                                                        'dataHora',
+                                                        validarFormulario,
+                                                    )}
+                                                />
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="dataHora"
                                                 />
                                             </div>
 
                                             <div className={styles.fieldGroup}>
-                                                <span className={styles.fieldLabel}>
+                                                <label htmlFor="duracaoMinutos">
+                                                    Duração (minutos)
+                                                </label>
+                                                <input
+                                                    id="duracaoMinutos"
+                                                    name="duracaoMinutos"
+                                                    type="number"
+                                                    min="1"
+                                                    step="1"
+                                                    required
+                                                    value={
+                                                        formData.duracaoMinutos ||
+                                                        ''
+                                                    }
+                                                    onChange={handleChange}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    {...validation.field(
+                                                        'duracaoMinutos',
+                                                        validarFormulario,
+                                                    )}
+                                                />
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="duracaoMinutos"
+                                                />
+                                            </div>
+                                            <div className={styles.fieldGroup}>
+                                                <label
+                                                    className={
+                                                        styles.fieldLabel
+                                                    }
+                                                    htmlFor="modalidade"
+                                                >
                                                     Modalidade
-                                                </span>
+                                                </label>
 
                                                 <select
+                                                    id="modalidade"
                                                     name="modalidade"
                                                     value={formData.modalidade}
                                                     onChange={handleChange}
-                                                    className={styles.fieldInput}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    {...validation.field(
+                                                        'modalidade',
+                                                        validarFormulario,
+                                                    )}
                                                 >
                                                     <option value="Pessoalmente">
                                                         Pessoalmente
@@ -310,18 +473,34 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
                                                         Telemedicina
                                                     </option>
                                                 </select>
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="modalidade"
+                                                />
                                             </div>
 
                                             <div className={styles.fieldGroup}>
-                                                <span className={styles.fieldLabel}>
+                                                <label
+                                                    className={
+                                                        styles.fieldLabel
+                                                    }
+                                                    htmlFor="status"
+                                                >
                                                     Status
-                                                </span>
+                                                </label>
 
                                                 <select
+                                                    id="status"
                                                     name="status"
                                                     value={formData.status}
                                                     onChange={handleChange}
-                                                    className={styles.fieldInput}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    {...validation.field(
+                                                        'status',
+                                                        validarFormulario,
+                                                    )}
                                                 >
                                                     <option value="Pendente">
                                                         Pendente
@@ -330,28 +509,57 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
                                                     <option value="Confirmado">
                                                         Confirmado
                                                     </option>
+                                                    {modoEdicao &&
+                                                        localStorage.getItem(
+                                                            'role',
+                                                        ) !== 'PACIENTE' && (
+                                                            <option value="Concluido">
+                                                                Concluído
+                                                            </option>
+                                                        )}
                                                 </select>
-                                            </div>
-
-                                            <div className={styles.fieldGroup}>
-                                                <span className={styles.fieldLabel}>
-                                                    Triagem de Sintomas
-                                                </span>
-
-                                                <textarea
-                                                    name="triagemSintomas"
-                                                    rows={5}
-                                                    required
-                                                    value={formData.triagemSintomas}
-                                                    onChange={handleChange}
-                                                    className={styles.fieldInput}
-                                                    placeholder="Descreva os sintomas do paciente"
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="status"
                                                 />
                                             </div>
 
+                                            <div className={styles.fieldGroup}>
+                                                <label
+                                                    className={
+                                                        styles.fieldLabel
+                                                    }
+                                                    htmlFor="triagemSintomas"
+                                                >
+                                                    Triagem de Sintomas
+                                                </label>
+
+                                                <textarea
+                                                    id="triagemSintomas"
+                                                    name="triagemSintomas"
+                                                    rows={5}
+                                                    required
+                                                    value={
+                                                        formData.triagemSintomas
+                                                    }
+                                                    onChange={handleChange}
+                                                    className={
+                                                        styles.fieldInput
+                                                    }
+                                                    placeholder="Descreva os sintomas do paciente"
+                                                    {...validation.field(
+                                                        'triagemSintomas',
+                                                        validarFormulario,
+                                                    )}
+                                                    maxLength={100}
+                                                />
+                                                <FieldErrors
+                                                    errors={validation.errors}
+                                                    name="triagemSintomas"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
                         </div>
@@ -360,20 +568,22 @@ function FormConsulta({ idConsulta }: FormConsultaProps) {
                         <div className={styles.buttonGroup}>
                             <button
                                 type="submit"
+                                disabled={salvando}
                                 className={styles.buttonPrimary}
                             >
-                                {modoEdicao ? "Atualizar Consulta" : "Cadastrar Consulta"}
+                                {modoEdicao
+                                    ? 'Atualizar Consulta'
+                                    : 'Cadastrar Consulta'}
                             </button>
 
                             <button
                                 type="button"
                                 className={styles.buttonSecondary}
-                                onClick={() => navigate("/lista/consulta")}
+                                onClick={() => navigate('/lista/consulta')}
                             >
                                 Voltar
                             </button>
                         </div>
-
                     </div>
                 </form>
             )}

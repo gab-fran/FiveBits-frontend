@@ -25,3 +25,5 @@ dist-ssr
 .agents
 
 .env
+/test-results/
+/playwright-report/

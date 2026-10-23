@@ -1,14 +1,14 @@
-import { useEffect, useState, type JSX } from "react";
-import { Card } from "primereact/card";
-import { Skeleton } from "primereact/skeleton";
-import { Tag } from "primereact/tag";
-import { Divider } from "primereact/divider";
-import { Message } from "primereact/message";
-import MedicoRequest from "../../../fetch/MedicoRequest";
-import type { MedicoDTO } from "../../../dto/MedicoDTO";
-import { useNavigate } from "react-router-dom";
-import Utilitario from "../../../utils/Utilitario";
-import styles from "../../../styles/DetalhesPadrao.module.css";
+import { useEffect, useState, type JSX } from 'react';
+import { Card } from 'primereact/card';
+import { Skeleton } from 'primereact/skeleton';
+import { Tag } from 'primereact/tag';
+import { Divider } from 'primereact/divider';
+import { Message } from 'primereact/message';
+import MedicoRequest from '../../../fetch/MedicoRequest';
+import type { MedicoDTO } from '../../../dto/MedicoDTO';
+import { useNavigate } from 'react-router-dom';
+import Utilitario from '../../../utils/Utilitario';
+import styles from '../../../styles/DetalhesPadrao.module.css';
 
 interface DetalhesMedicoProps {
     id_medico: number;
@@ -34,11 +34,11 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
                 if (dados) {
                     setMedico(dados);
                 } else {
-                    setError("Médico não encontrado.");
+                    setError('Médico não encontrado.');
                 }
             } catch (err) {
-                console.error("Erro ao carregar detalhes do médico:", err);
-                setError("Ocorreu um erro ao buscar as informações do médico.");
+                console.error('Erro ao carregar detalhes do médico:', err);
+                setError('Ocorreu um erro ao buscar as informações do médico.');
             } finally {
                 setLoading(false);
             }
@@ -56,7 +56,11 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
                         <div className="flex items-center gap-4">
                             <Skeleton shape="circle" size="4rem"></Skeleton>
                             <div className="flex-1">
-                                <Skeleton width="60%" height="2rem" className="mb-2"></Skeleton>
+                                <Skeleton
+                                    width="60%"
+                                    height="2rem"
+                                    className="mb-2"
+                                ></Skeleton>
                                 <Skeleton width="40%"></Skeleton>
                             </div>
                         </div>
@@ -64,8 +68,14 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
                                 <div key={i}>
-                                    <Skeleton width="30%" className="mb-2"></Skeleton>
-                                    <Skeleton width="80%" height="1.5rem"></Skeleton>
+                                    <Skeleton
+                                        width="30%"
+                                        className="mb-2"
+                                    ></Skeleton>
+                                    <Skeleton
+                                        width="80%"
+                                        height="1.5rem"
+                                    ></Skeleton>
                                 </div>
                             ))}
                         </div>
@@ -79,7 +89,10 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
     if (error || !medico) {
         return (
             <div className={styles.errorWrapper}>
-                <Message severity="error" text={error || "Erro desconhecido."} />
+                <Message
+                    severity="error"
+                    text={error || 'Erro desconhecido.'}
+                />
             </div>
         );
     }
@@ -91,10 +104,16 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
                 <Card className={styles.detailsCard}>
                     <div className={styles.cardContent}>
                         <div className={styles.detailsHeader}>
-                            <h2 className={styles.headerTitle}>{medico.nome}</h2>
+                            <h2 className={styles.headerTitle}>
+                                {medico.nome}
+                            </h2>
                             <div className={styles.headerSubtitle}>
                                 <span>Registro no Conselho (CRM)</span>
-                                <Tag value={Utilitario.formatarCrm(medico.crm)} severity="info" className="px-3 py-1 text-sm font-semibold" />
+                                <Tag
+                                    value={Utilitario.formatarCrm(medico.crm)}
+                                    severity="info"
+                                    className="px-3 py-1 text-sm font-semibold"
+                                />
                             </div>
                         </div>
 
@@ -103,15 +122,22 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
                         <div className={styles.infoGrid}>
                             <div className={styles.infoSection}>
                                 <h3 className={styles.sectionTitle}>
-                                    <i className="pi pi-briefcase text-blue-500 text-sm"></i> Informações do Médico
+                                    <i className="pi pi-briefcase text-blue-500 text-sm"></i>{' '}
+                                    Informações do Médico
                                 </h3>
                                 <div className={styles.sectionText}>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Especialidade</span>
-                                        <span className={styles.fieldValue}>{medico.especialidade}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Especialidade
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {medico.especialidade}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Valor da Consulta</span>
+                                        <span className={styles.fieldLabel}>
+                                            Valor da Consulta
+                                        </span>
                                         <span className={styles.fieldValue}>
                                             R$ {medico.valorConsulta}
                                         </span>
@@ -125,7 +151,10 @@ function DetalhesMedico({ id_medico }: DetalhesMedicoProps): JSX.Element {
                 <div className={styles.buttonGroup}>
                     <button
                         className={styles.buttonPrimary}
-                        onClick={() => navigate(`/atualizar/medico/${medico.idMedico}`)}
+                        hidden={localStorage.getItem('role') !== 'ADMIN'}
+                        onClick={() =>
+                            navigate(`/atualizar/medico/${medico.idMedico}`)
+                        }
                     >
                         Editar Médico
                     </button>

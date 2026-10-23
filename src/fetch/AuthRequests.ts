@@ -1,126 +1,88 @@
-import { SERVER_CFG } from "../AppConfig";
-
-/**
- * Classe para lidar com autenticação
- */
+import { request, ApiError } from './ApiClient';
+import { parseLogin } from '../validation/inputs';
+interface Usuario {
+    id_usuario: number;
+    nome: string;
+    email: string;
+    role: 'ADMIN' | 'MEDICO' | 'PACIENTE';
+    idPaciente?: number | null;
+    idMedico?: number | null;
+}
+export function clearSession() {
+    for (const key of [
+        'token',
+        'nome',
+        'idUsuario',
+        'email',
+        'role',
+        'isAuth',
+        'idPaciente',
+        'idMedico',
+    ])
+        localStorage.removeItem(key);
+}
 class AuthRequests {
-
-    private serverUrl: string;
-    private endpointLogin: string;
-    
-    /**
-     * Construtor das rotas e do endereço do servidor
-     */
-    constructor() {
-        // endereço do servidor
-        this.serverUrl = SERVER_CFG.SERVER_URL;
-        // rota do servidor
-        this.endpointLogin = SERVER_CFG.ENDPOINT_LOGIN;
+    async login(login: { email: string; senha: string }) {
+        const data = await request<{
+            auth: boolean;
+            token: string;
+            usuario: Usuario;
+        }>('/api/login', {
+            method: 'POST',
+            body: JSON.stringify(parseLogin(login)),
+        });
+        if (
+            data.auth !== true ||
+            typeof data.token !== 'string' ||
+            !data.usuario ||
+            !Number.isInteger(data.usuario.id_usuario)
+        )
+            throw new ApiError(
+                500,
+                'RESPOSTA_INVALIDA',
+                'Resposta de autenticação inválida.',
+            );
+        this.persistToken(data.token, data.usuario, true);
+        return true;
     }
-
-    /**
-     * Realiza a autenticação no servidor
-     * @param {*} login - email e senha
-     * @returns **true** caso sucesso, **false** caso erro
-     */
-    async login(login: { email: string, senha: string}) {       
-        try {
-            // faz a requisição POST ao servidor...
-            const response = await fetch(`${this.serverUrl}${this.endpointLogin}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                // passando as informações de login no corpo da requisição
-                body: JSON.stringify(login)
-            });
-            
-            // Verifica alguma falha na comunicação
-            if (!response.ok) {
-                console.log('Erro na autenticação');
-                throw new Error('Falha no login');
-            }
-            // caso a requisição seja bem sucedida, armazena a resposta em uma constante
-            const data = await response.json();
-            console.log( data );
-
-            // verifica se o atributo auth da resposta tem o valor TRUE, se tiver é porque a autenticação teve sucesso
-            if (data.auth) {
-                // persistem o token, o nome e o id do professor no localstorage
-                this.persistToken(data.token, data.usuario, data.auth);
-            }
-
-            // retorna a resposta da requisição a quem chamou a função
-            return true;
-        } catch (error) {
-            // lança um erro em caso de falha
-            console.error('Erro: ', error);
-            throw error;
-        }
+    persistToken(token: string, usuario: Usuario, isAuth: boolean) {
+        clearSession();
+        for (const [key, value] of Object.entries({
+            token,
+            nome: usuario.nome ?? '',
+            idUsuario: usuario.id_usuario,
+            email: usuario.email,
+            role: usuario.role,
+            isAuth,
+            idPaciente: usuario.idPaciente ?? '',
+            idMedico: usuario.idMedico ?? '',
+        }))
+            localStorage.setItem(key, String(value));
+        window.dispatchEvent(new Event('auth-changed'));
     }
-
-    /**
-     * Persiste o token no localStorage
-     * @param {*} token - token recebido do servidor
-     * @param {*} usuario - objeto com informações do usuário vindos do servidor
-     * @param {*} isAuth - estado da autenticação do usuário
-     */
-    persistToken(token: string, usuario: {id_usuario: number, nome: string, email: string, role: string}, isAuth: boolean) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('nome', usuario.nome);
-        localStorage.setItem('idUsuario', usuario.id_usuario.toString());
-        localStorage.setItem('email', usuario.email);
-        localStorage.setItem('role', usuario.role);
-        localStorage.setItem('isAuth', isAuth.toString());
-    }
-
-    /**
-     * Remove as informações do localStorage
-     */
     removeToken() {
-        const keys = [
-            'token',
-            'nome',
-            'idUsuario',
-            'email',
-            'role',
-            'isAuth'
-        ];
-
-        keys.map(key => localStorage.removeItem(key));
-        window.location.href = `/login`;
+        clearSession();
+        window.dispatchEvent(new Event('auth-changed'));
+        window.location.assign('/login');
     }
-
-    /**
-     * Verifica a validade do token
-     * @returns **true** caso token válido, **false** caso token inválido
-     */
     checkTokenExpiry() {
-        // recupera o valor do token no localstorage
-        const token = localStorage.getItem('token');
-        
-        // verifica se o valor é diferente de vazio
-        if (token) {
-            // recupera a data de expiração do token
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            // recuepra a hora de expiração do token
-            const expiry = payload.exp;
-            // pega a data e hora atual
-            const now = Math.floor(Date.now() / 1000);
-
-            // verifica se o token está expirado
-            if (expiry < now) {
-                // invoca a função para remover o token do localstorage
-                this.removeToken();
-                // retorna false
-                return false;
-            }
-            // caso o token não esteja expirado, retorna true
-            return true;
+        try {
+            if (localStorage.getItem('isAuth') !== 'true') return false;
+            const token = localStorage.getItem('token');
+            if (!token) return false;
+            const encoded = token.split('.')[1];
+            if (!encoded) return false;
+            const payload = JSON.parse(
+                atob(encoded.replace(/-/g, '+').replace(/_/g, '/')),
+            );
+            return (
+                typeof payload.exp === 'number' &&
+                Number.isFinite(payload.exp) &&
+                payload.exp > Math.floor(Date.now() / 1000)
+            );
+        } catch {
+            return false;
         }
-        // caso o token esteja vazio, retorna false
-        return false;
     }
 }
-
 export default new AuthRequests();

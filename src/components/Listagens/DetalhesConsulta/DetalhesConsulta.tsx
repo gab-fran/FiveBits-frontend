@@ -1,14 +1,14 @@
-import { useEffect, useState, type JSX } from "react";
-import { Card } from "primereact/card";
-import { Skeleton } from "primereact/skeleton";
-import { Tag } from "primereact/tag";
-import { Divider } from "primereact/divider";
-import { Message } from "primereact/message";
-import ConsultaRequests from "../../../fetch/ConsultaRequest.ts";
-import type { ConsultaDTO } from "../../../dto/ConsultaDTO";
-import { useNavigate } from "react-router-dom";
-import Utilitario from "../../../utils/Utilitario";
-import styles from "../../../styles/DetalhesPadrao.module.css";
+import { useEffect, useState, type JSX } from 'react';
+import { Card } from 'primereact/card';
+import { Skeleton } from 'primereact/skeleton';
+import { Tag } from 'primereact/tag';
+import { Divider } from 'primereact/divider';
+import { Message } from 'primereact/message';
+import ConsultaRequests from '../../../fetch/ConsultaRequest.ts';
+import type { ConsultaDTO } from '../../../dto/ConsultaDTO';
+import { useNavigate } from 'react-router-dom';
+import Utilitario from '../../../utils/Utilitario';
+import styles from '../../../styles/DetalhesPadrao.module.css';
 
 interface DetalhesConsultaProps {
     id_consulta: number;
@@ -30,15 +30,18 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
             setError(null);
 
             try {
-                const dados = await ConsultaRequests.obterConsultaPorId(id_consulta);
+                const dados =
+                    await ConsultaRequests.obterConsultaPorId(id_consulta);
                 if (dados) {
                     setConsulta(dados);
                 } else {
-                    setError("Consulta não encontrada.");
+                    setError('Consulta não encontrada.');
                 }
             } catch (err) {
-                console.error("Erro ao carregar detalhes da consulta:", err);
-                setError("Ocorreu um erro ao buscar as informações da consulta.");
+                console.error('Erro ao carregar detalhes da consulta:', err);
+                setError(
+                    'Ocorreu um erro ao buscar as informações da consulta.',
+                );
             } finally {
                 setLoading(false);
             }
@@ -55,7 +58,11 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
                         <div className="flex items-center gap-4">
                             <Skeleton shape="circle" size="4rem"></Skeleton>
                             <div className="flex-1">
-                                <Skeleton width="60%" height="2rem" className="mb-2"></Skeleton>
+                                <Skeleton
+                                    width="60%"
+                                    height="2rem"
+                                    className="mb-2"
+                                ></Skeleton>
                                 <Skeleton width="40%"></Skeleton>
                             </div>
                         </div>
@@ -63,8 +70,14 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
                                 <div key={i}>
-                                    <Skeleton width="30%" className="mb-2"></Skeleton>
-                                    <Skeleton width="80%" height="1.5rem"></Skeleton>
+                                    <Skeleton
+                                        width="30%"
+                                        className="mb-2"
+                                    ></Skeleton>
+                                    <Skeleton
+                                        width="80%"
+                                        height="1.5rem"
+                                    ></Skeleton>
                                 </div>
                             ))}
                         </div>
@@ -77,7 +90,10 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
     if (error || !consulta) {
         return (
             <div className={styles.errorWrapper}>
-                <Message severity="error" text={error || "Erro desconhecido."} />
+                <Message
+                    severity="error"
+                    text={error || 'Erro desconhecido.'}
+                />
             </div>
         );
     }
@@ -88,10 +104,16 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
                 <Card className={styles.detailsCard}>
                     <div className={styles.cardContent}>
                         <div className={styles.detailsHeader}>
-                            <h2 className={styles.headerTitle}>Consulta #{consulta.idConsulta}</h2>
+                            <h2 className={styles.headerTitle}>
+                                Consulta #{consulta.idConsulta}
+                            </h2>
                             <div className={styles.headerSubtitle}>
                                 <span>Status da Consulta</span>
-                                <Tag value={consulta.status || "Pendente"} severity="info" className="px-3 py-1 text-sm font-semibold" />
+                                <Tag
+                                    value={consulta.status || 'Pendente'}
+                                    severity="info"
+                                    className="px-3 py-1 text-sm font-semibold"
+                                />
                             </div>
                         </div>
 
@@ -100,76 +122,147 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
                         <div className={styles.infoGrid}>
                             <div className={styles.infoSection}>
                                 <h3 className={styles.sectionTitle}>
-                                    <i className="pi pi-user text-blue-500 text-sm"></i> Dados do Paciente
+                                    <i className="pi pi-user text-blue-500 text-sm"></i>{' '}
+                                    Dados do Paciente
                                 </h3>
                                 <div className={styles.sectionText}>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Nome</span>
-                                        <span className={styles.fieldValue}>{consulta.paciente.nomePaciente}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Nome
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.paciente.nomePaciente}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>CPF</span>
-                                        <span className={styles.fieldValue}>{consulta.paciente.cpf}</span>
+                                        <span className={styles.fieldLabel}>
+                                            CPF
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.paciente.cpf}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Telefone</span>
-                                        <span className={styles.fieldValue}>{consulta.paciente.telefone ?? "Não informado"}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Telefone
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.paciente.telefone ??
+                                                'Não informado'}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Data de Nascimento</span>
-                                        <span className={styles.fieldValue}>{new Date(consulta.paciente.dataNascimento).toLocaleDateString('pt-BR')}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Data de Nascimento
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {Utilitario.formatarData(
+                                                consulta.paciente
+                                                    .dataNascimento,
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
                             <div className={styles.infoSection}>
                                 <h3 className={styles.sectionTitle}>
-                                    <i className="pi pi-briefcase text-orange-500 text-sm"></i> Dados do Médico
+                                    <i className="pi pi-briefcase text-orange-500 text-sm"></i>{' '}
+                                    Dados do Médico
                                 </h3>
                                 <div className={styles.sectionText}>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Nome</span>
-                                        <span className={styles.fieldValue}>{consulta.medico.nomeMedico}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Nome
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.medico.nomeMedico}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>CRM</span>
-                                        <span className={styles.fieldValue}>{Utilitario.formatarCrm(consulta.medico.crm)}</span>
+                                        <span className={styles.fieldLabel}>
+                                            CRM
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {Utilitario.formatarCrm(
+                                                consulta.medico.crm,
+                                            )}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Especialidade</span>
-                                        <span className={styles.fieldValue}>{consulta.medico.especialidade}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Especialidade
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.medico.especialidade}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Valor da Consulta</span>
-                                        <span className={styles.fieldValue}>{consulta.medico.valorConsulta.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Valor da Consulta
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.medico.valorConsulta.toLocaleString(
+                                                'pt-BR',
+                                                {
+                                                    style: 'currency',
+                                                    currency: 'BRL',
+                                                },
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
                             <div className={styles.infoSection}>
                                 <h3 className={styles.sectionTitle}>
-                                    <i className="pi pi-calendar text-green-500 text-sm"></i> Data e Modalidade
+                                    <i className="pi pi-calendar text-green-500 text-sm"></i>{' '}
+                                    Data e Modalidade
                                 </h3>
                                 <div className={styles.sectionText}>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Data e Hora</span>
-                                        <span className={styles.fieldValue}>{new Date(consulta.dataHora).toLocaleString('pt-BR')}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Data e Hora
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {new Date(
+                                                consulta.dataHora,
+                                            ).toLocaleString('pt-BR', {
+                                                timeZone: 'America/Sao_Paulo',
+                                            })}
+                                        </span>
                                     </div>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Modalidade</span>
-                                        <span className={styles.fieldValue}>{consulta.modalidade ?? "Não informada"}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Duração
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.duracaoMinutos} minutos
+                                        </span>
+                                        <span className={styles.fieldLabel}>
+                                            Modalidade
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.modalidade ??
+                                                'Não informada'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
                             <div className={styles.infoSection}>
                                 <h3 className={styles.sectionTitle}>
-                                    <i className="pi pi-heart text-red-500 text-sm"></i> Triagem
+                                    <i className="pi pi-heart text-red-500 text-sm"></i>{' '}
+                                    Triagem
                                 </h3>
                                 <div className={styles.sectionText}>
                                     <div className={styles.fieldGroup}>
-                                        <span className={styles.fieldLabel}>Sintomas</span>
-                                        <span className={styles.fieldValue}>{consulta.triagemSintomas}</span>
+                                        <span className={styles.fieldLabel}>
+                                            Sintomas
+                                        </span>
+                                        <span className={styles.fieldValue}>
+                                            {consulta.triagemSintomas}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -180,7 +273,11 @@ function DetalhesConsulta({ id_consulta }: DetalhesConsultaProps): JSX.Element {
                 <div className={styles.buttonGroup}>
                     <button
                         className={styles.buttonPrimary}
-                        onClick={() => navigate(`/atualizar/consulta/${consulta.idConsulta}`)}//navigate(`/atualizar/consulta/${consulta.idConsulta}`)}
+                        onClick={() =>
+                            navigate(
+                                `/atualizar/consulta/${consulta.idConsulta}`,
+                            )
+                        } //navigate(`/atualizar/consulta/${consulta.idConsulta}`)}
                     >
                         Editar Consulta
                     </button>

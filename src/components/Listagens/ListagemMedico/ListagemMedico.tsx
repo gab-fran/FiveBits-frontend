@@ -1,13 +1,16 @@
-import { type JSX } from "react";
-import { useState, useEffect } from "react";
-import type { MedicoDTO } from "../../../dto/MedicoDTO";
-import MedicoRequests from "../../../fetch/MedicoRequest";
-import Navegacao from "../../../components/Navegacao/Navegacao";
-import Rodape from "../../../components/Rodape/Rodape";
-import { useNavigate, useLocation } from "react-router-dom";
-import { AlertCard, type AlertVariant } from "../../AlertCard";
-import ConfirmacaoCard from "../../ConfirmacaoCard/ConfirmacaoCard";
-import "../../../styles/ListagensPadrao.css";
+import { useRemoteList } from '../../../hooks/useRemoteList';
+import { type JSX } from 'react';
+import { useState } from 'react';
+import type { MedicoDTO } from '../../../dto/MedicoDTO';
+import MedicoRequests from '../../../fetch/MedicoRequest';
+import Navegacao from '../../../components/Navegacao/Navegacao';
+import Rodape from '../../../components/Rodape/Rodape';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { AlertCard, type AlertVariant } from '../../AlertCard';
+import ConfirmacaoCard from '../../ConfirmacaoCard/ConfirmacaoCard';
+import '../../../styles/ListagensPadrao.css';
+
+const carregarLista = () => MedicoRequests.obterListaDeMedicos();
 
 interface AlertaState {
     variant: AlertVariant;
@@ -17,29 +20,21 @@ interface AlertaState {
 }
 
 function ListagemMedicos(): JSX.Element {
-    const [medicos, setMedicos] = useState<MedicoDTO[]>([]);
-    const [erro, setErro] = useState<boolean>(false);
+    const {
+        items: medicos,
+        error: erro,
+        reload: buscarMedicos,
+    } = useRemoteList<MedicoDTO>(carregarLista);
     const navigate = useNavigate();
     const location = useLocation();
 
-    const initialAlerta = (location.state as { alerta?: AlertaState })?.alerta || null;
+    const initialAlerta =
+        (location.state as { alerta?: AlertaState })?.alerta || null;
     const [alerta, setAlerta] = useState<AlertaState | null>(initialAlerta);
-    const [medicoParaExcluir, setMedicoParaExcluir] = useState<{ id: number; nome: string } | null>(null);
-
-    const buscarMedicos = async () => {
-        setErro(false);
-        try {
-            const listaDeMedicos = await MedicoRequests.obterListaDeMedicos();
-            if (listaDeMedicos) {
-                setMedicos(listaDeMedicos);
-            } else {
-                setMedicos([]);
-            }
-        } catch (error) {
-            console.error(`Erro ao buscar médicos. ${error}`);
-            setErro(true);
-        }
-    }
+    const [medicoParaExcluir, setMedicoParaExcluir] = useState<{
+        id: number;
+        nome: string;
+    } | null>(null);
 
     const solicitarExclusao = (id: number, nome: string) => {
         setMedicoParaExcluir({ id, nome });
@@ -48,29 +43,39 @@ function ListagemMedicos(): JSX.Element {
     const deletarMedico = async () => {
         if (!medicoParaExcluir) return;
 
-        const resposta = await MedicoRequests.deletarMedico(medicoParaExcluir.id);
-        setMedicoParaExcluir(null);
-        if (resposta) {
-            setAlerta({
-                variant: 'success',
-                title: 'Médico Removido',
-                message: 'O cadastro do médico foi removido com sucesso.',
-                type: 'toast',
-            });
-            buscarMedicos();
-        } else {
+        try {
+            const resposta = await MedicoRequests.deletarMedico(
+                medicoParaExcluir.id,
+            );
+            setMedicoParaExcluir(null);
+            if (resposta) {
+                setAlerta({
+                    variant: 'success',
+                    title: 'Médico Removido',
+                    message: 'O cadastro do médico foi removido com sucesso.',
+                    type: 'toast',
+                });
+                buscarMedicos();
+            } else {
+                setAlerta({
+                    variant: 'danger',
+                    title: 'Erro de Remoção',
+                    message: 'Não foi possível deletar o médico.',
+                    type: 'toast',
+                });
+            }
+        } catch (error) {
+            setMedicoParaExcluir(null);
             setAlerta({
                 variant: 'danger',
-                title: 'Erro de Remoção',
-                message: 'Não foi possível deletar o médico.',
-                type: 'toast',
+                title: 'Não foi possível concluir',
+                message:
+                    error instanceof Error
+                        ? error.message
+                        : 'Falha na operação.',
             });
         }
     };
-
-    useEffect(() => {
-        buscarMedicos();
-    }, []);
 
     return (
         <div className="medflow-list-wrapper">
@@ -79,7 +84,7 @@ function ListagemMedicos(): JSX.Element {
             {medicoParaExcluir && (
                 <ConfirmacaoCard
                     titulo="Excluir médico?"
-                    mensagem={`O cadastro de ${medicoParaExcluir.nome} será removido permanentemente.`}
+                    mensagem={`O cadastro de ${medicoParaExcluir.nome} será desativado. Consultas futuras devem ser canceladas antes.`}
                     onCancelar={() => setMedicoParaExcluir(null)}
                     onConfirmar={deletarMedico}
                 />
@@ -99,9 +104,11 @@ function ListagemMedicos(): JSX.Element {
                 {/* Cabeçalho */}
                 <div className="page-header">
                     <h1>Médicos</h1>
-                    <a href="/cadastro/medico" className="btn-novo">
-                        + Novo Médico
-                    </a>
+                    {localStorage.getItem('role') === 'ADMIN' && (
+                        <a href="/cadastro/medico" className="btn-novo">
+                            + Novo Médico
+                        </a>
+                    )}
                 </div>
 
                 {/* Tabela de Médicos */}
@@ -121,11 +128,20 @@ function ListagemMedicos(): JSX.Element {
                                     <td colSpan={4}>
                                         <div className="error-state">
                                             <div className="error-icon">⚠️</div>
-                                            <div className="error-title">Serviço Indisponível</div>
-                                            <div className="error-message">
-                                                Não foi possível conectar ao servidor. Verifique sua conexão ou tente novamente mais tarde.
+                                            <div className="error-title">
+                                                Serviço Indisponível
                                             </div>
-                                            <button className="btn-retry" onClick={buscarMedicos}>Tentar Novamente</button>
+                                            <div className="error-message">
+                                                Não foi possível conectar ao
+                                                servidor. Verifique sua conexão
+                                                ou tente novamente mais tarde.
+                                            </div>
+                                            <button
+                                                className="btn-retry"
+                                                onClick={buscarMedicos}
+                                            >
+                                                Tentar Novamente
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -135,9 +151,13 @@ function ListagemMedicos(): JSX.Element {
                                         <td>
                                             <div className="item-box">
                                                 <div className="avatar-icon">
-                                                    {medico.nome.charAt(0).toUpperCase()}
+                                                    {medico.nome
+                                                        .charAt(0)
+                                                        .toUpperCase()}
                                                 </div>
-                                                <span className="text-bold">{medico.nome}</span>
+                                                <span className="text-bold">
+                                                    {medico.nome}
+                                                </span>
                                             </div>
                                         </td>
                                         <td>{medico.especialidade}</td>
@@ -148,9 +168,45 @@ function ListagemMedicos(): JSX.Element {
                                         </td>
                                         <td>
                                             <div className="btn-group">
-                                                <button className="btn-minimal primary" onClick={() => navigate(`/detalhes/medico/${medico.idMedico}`)}>Detalhes</button>
-                                                <button className="btn-minimal secondary" onClick={() => navigate(`/atualizar/medico/${medico.idMedico}`)}>Atualizar</button>
-                                                <button className="btn-minimal danger" onClick={() => solicitarExclusao(medico.idMedico, medico.nome)}>Deletar</button>
+                                                <button
+                                                    className="btn-minimal primary"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/detalhes/medico/${medico.idMedico}`,
+                                                        )
+                                                    }
+                                                >
+                                                    Detalhes
+                                                </button>
+                                                {localStorage.getItem(
+                                                    'role',
+                                                ) === 'ADMIN' && (
+                                                    <button
+                                                        className="btn-minimal secondary"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/atualizar/medico/${medico.idMedico}`,
+                                                            )
+                                                        }
+                                                    >
+                                                        Atualizar
+                                                    </button>
+                                                )}
+                                                {localStorage.getItem(
+                                                    'role',
+                                                ) === 'ADMIN' && (
+                                                    <button
+                                                        className="btn-minimal danger"
+                                                        onClick={() =>
+                                                            solicitarExclusao(
+                                                                medico.idMedico,
+                                                                medico.nome,
+                                                            )
+                                                        }
+                                                    >
+                                                        Deletar
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

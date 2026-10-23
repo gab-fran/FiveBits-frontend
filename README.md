@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# MedFlow frontend — refactor-codex
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Base: main, commit `3ba9661d821a6ba1913a4535ab3e116b3b747d18`.
+React, TypeScript, Vite e PrimeReact preservados. Node 24 recomendado.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm ci
+VITE_SERVER_URL=http://localhost:3333 npm run dev
+npm run build
+npm run lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Configure VITE_SERVER_URL antes do build para apontar à API correspondente; não use o backend publicado antigo com estes contratos. O fallback histórico de AppConfig foi preservado. A API deve ter as migrations da branch refactor-codex; consulte o README do backend.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Fluxos e validações
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+`/cadastro/paciente` é público e cria uma conta com e-mail/senha. O administrador é o único perfil com cadastro e edição de médicos. Pacientes acessam seus dados e consultas; médicos acessam seus atendimentos. O backend aplica a autorização de forma independente das telas.
+
+Formulários de criação e edição usam os mesmos validadores: obrigatoriedade, tipos, limites, CPF com dígitos verificadores, CRM número/UF, calendário real, nascimento não futuro, moeda e duração inteira positiva. Máscaras são apresentação; a API revalida o payload. As mensagens aparecem junto aos campos, com aria-invalid, descrição acessível e foco no primeiro erro. Falhas da API são preservadas e exibidas; botões de envio evitam cliques repetidos enquanto a operação está em andamento.
+
+Agendamentos usam data/hora de Brasília, duração em minutos e intervalo exclusivo no final (09:00–09:45 permite outra consulta às 09:45). O paciente não pode ser substituído na edição. O horário digitado é enviado com offset, e a leitura para edição é feita com America/Sao_Paulo. Data de nascimento é uma data civil, não um instante. Consultas encerradas continuam sujeitas às regras da API.
+
+O cliente HTTP centraliza JSON, erros e expiração de sessão. Tokens e respostas de login não são impressos. localStorage é mantido para compatibilidade; a verificação local serve somente à navegação. Nenhuma decisão de autorização depende dela no servidor.
+
+Os validadores em `src/validation/inputs.ts` têm a mesma implementação do backend, sem introduzir um pacote compartilhado entre repositórios independentes. Mudanças de contrato precisam ser aplicadas em ambos; o teste de contrato verifica essa igualdade.
+
+## Testes reais no navegador
+
+```sh
+npm test
 ```
+
+Playwright é uma dependência exclusivamente de desenvolvimento. O teste inicia Vite na porta 5174 e a API do checkout irmão `../FiveBits-backend` na 3334. PostgreSQL deve estar disponível; o runner cria e remove um banco descartável, sem tocar no banco da aplicação. São usadas credenciais sintéticas somente no teste.
+
+No ambiente preparado, Chromium está em `/usr/bin/chromium`. Para outra instalação, defina `CHROMIUM_PATH`. As variáveis PostgreSQL são `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER`, `TEST_DB_PASSWORD`, `TEST_DB_ADMIN`, `PSQL_BIN`, documentadas no backend. As portas de teste devem estar livres.
+
+Cobertura: cadastro público com CPF inválido sem envio à API, cadastro válido e login, acesso por perfil, criação de médico, consulta gratuita, duração variável, horário preservado na edição, bloqueio de desativação e sessão malformada. Os testes usam a API e o banco reais, sem mocks para esses fluxos.
+
+Escopo v2: disponibilidade/feriados, financeiro, convênios, mensagens de e-mail/SMS e documentos PDF. A recuperação de senha informa o contato com a clínica; não há rota fictícia de recuperação automática.
+
+Publicação após revisão: `git push -u origin refactor-codex`.

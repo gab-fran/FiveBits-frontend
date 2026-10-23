@@ -1,160 +1,44 @@
-import { SERVER_CFG } from "../AppConfig";
-import type { ConsultaDTO } from "../dto/ConsultaDTO";
-
-// Classe responsável por fazer requisições à API - consulta
+import { request } from './ApiClient';
+import type { ConsultaDTO } from '../dto/ConsultaDTO';
+import { parseConsulta } from '../validation/inputs';
+export function consultaPayload(data: ConsultaDTO, editing = false) {
+    return parseConsulta(
+        {
+            idPaciente: data.paciente.idPaciente,
+            idMedico: data.medico.idMedico,
+            dataHora: data.dataHora,
+            duracaoMinutos: data.duracaoMinutos,
+            status: data.status,
+            modalidade: data.modalidade,
+            triagemSintomas: data.triagemSintomas,
+        },
+        editing,
+    );
+}
 class ConsultaRequests {
-    private serverURL;
-    private endpointConsulta;
-
-    constructor() {
-        this.serverURL = SERVER_CFG.SERVER_URL;
-        this.endpointConsulta = SERVER_CFG.ENDPOINT_CONSULTAS;
+    obterListaDeConsultas() {
+        return request<ConsultaDTO[]>('/api/consultas');
     }
-
-    private async mensagemDeErro(respostaAPI: Response): Promise<string> {
-        const erroAPI = await respostaAPI.json().catch(() => null);
-        return erroAPI?.mensagem || erroAPI?.message || respostaAPI.statusText;
+    obterConsultaPorId(id: number) {
+        return request<ConsultaDTO>(`/api/consultas/${id}`);
     }
-
-    async obterListaDeConsultas() {
-        try {
-            const token = localStorage.getItem('token');
-
-            const respostaAPI = await fetch(`${this.serverURL}${this.endpointConsulta}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-access-token': `${token}`
-                }
-            });
-
-            if(respostaAPI.ok) {
-                const listaDeConsultas = await respostaAPI.json();
-                return listaDeConsultas;
-            } else {
-                throw new Error("Não foi possível listar as consultas.");
-            }
-        } catch (error) {
-            console.error(`Erro ao fazer a consulta de consultas. ${error}`);
-            throw error;
-        }
+    async enviarFormularioConsulta(data: ConsultaDTO) {
+        await request('/api/consultas', {
+            method: 'POST',
+            body: JSON.stringify(consultaPayload(data)),
+        });
+        return true;
     }
-
-
-async obterConsultaPorId(id_consulta: number) {
-        try {
-            const token = localStorage.getItem('token');
-
-            const respostaAPI = await fetch(`${this.serverURL}${this.endpointConsulta}/${id_consulta}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-access-token': `${token}`
-                }
-            });
-
-            if (respostaAPI.ok) {
-                const consulta = await respostaAPI.json();
-                return consulta;
-            } else {
-                throw new Error(`Não foi possível buscar o empréstimo com ID ${id_consulta}.`);
-            }
-        } catch (error) {
-            console.error(`Erro ao buscar o empréstimo por ID. ${error}`);
-            throw error;
-        }
+    async atualizarConsulta(data: ConsultaDTO) {
+        await request(`/api/consultas/${data.idConsulta}`, {
+            method: 'PUT',
+            body: JSON.stringify(consultaPayload(data, true)),
+        });
+        return true;
     }
-
-    async enviarFormularioConsulta(formConsulta: ConsultaDTO): Promise<boolean> {
-        try {
-            const token = localStorage.getItem('token');
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json'
-            };
-
-            if (token) headers['x-access-token'] = token;
-
-            const respostaAPI = await fetch(`${this.serverURL}${this.endpointConsulta}`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(formConsulta)
-            });
-
-            if (!respostaAPI.ok) {
-                let detalhe = '';
-                try {
-                    detalhe = await respostaAPI.text();
-                } catch {
-                    detalhe = `${respostaAPI.statusText}`;
-                }
-
-                console.error(`Erro ao cadastrar consulta: ${respostaAPI.status} ${respostaAPI.statusText} - ${detalhe}`);
-                throw new Error(`Erro ${respostaAPI.status}: ${respostaAPI.statusText}`);
-            }
-
-            console.info(`${respostaAPI.status}: ${respostaAPI.statusText}`);
-
-            return true;
-        } catch (error) {
-            console.error(`Erro ao fazer consulta à API. ${error}`);
-            return false;
-        }
-    }
-
-    async atualizarConsulta(formConsulta: ConsultaDTO): Promise<boolean> {
-        if (formConsulta.idConsulta === undefined) {
-            throw new Error("ID da consulta não informado.");
-        }
-
-        try {
-            const token = localStorage.getItem('token');
-            const respostaAPI = await fetch(`${this.serverURL}${this.endpointConsulta}/${formConsulta.idConsulta}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-access-token': `${token}`
-                },
-                body: JSON.stringify({
-                    idConsulta: formConsulta.idConsulta,
-                    idPaciente: formConsulta.paciente.idPaciente,
-                    idMedico: formConsulta.medico.idMedico,
-                    dataHora: formConsulta.dataHora,
-                    status: formConsulta.status,
-                    modalidade: formConsulta.modalidade,
-                    triagemSintomas: formConsulta.triagemSintomas
-                })
-            });
-
-            if (!respostaAPI.ok) {
-                throw new Error(`Erro ${respostaAPI.status}: ${await this.mensagemDeErro(respostaAPI)}`);
-            }
-
-            return true;
-        } catch (error) {
-            console.error(`Erro ao atualizar consulta. ${error}`);
-            throw error;
-        }
-    }
-
-    async deletarConsulta(idConsulta: number): Promise<boolean> {
-        try {
-            const token = localStorage.getItem('token');
-            const respostaAPI = await fetch(`${this.serverURL}${this.endpointConsulta}/${idConsulta}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-access-token': `${token}`
-                }
-            });
-
-            if (!respostaAPI.ok) {
-                throw new Error(`Erro ${respostaAPI.status}: ${await this.mensagemDeErro(respostaAPI)}`);
-            }
-
-            return true;
-        } catch (error) {
-            console.error(`Erro ao deletar consulta. ${error}`);
-            return false;
-        }
+    async deletarConsulta(id: number) {
+        await request(`/api/consultas/${id}`, { method: 'DELETE' });
+        return true;
     }
 }
-
-export default new ConsultaRequests;
+export default new ConsultaRequests();

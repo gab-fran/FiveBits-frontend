@@ -1,13 +1,16 @@
-import { type JSX, useState, useEffect } from "react";
-import Navegacao from "../../../components/Navegacao/Navegacao";
-import Rodape from "../../../components/Rodape/Rodape";
-import PacienteRequests from "../../../fetch/PacienteRequest";
-import type { PacienteDTO } from "../../../dto/PacienteDTO";
-import { useNavigate } from "react-router-dom";
-import { AlertCard, type AlertVariant } from "../../AlertCard";
-import ConfirmacaoCard from "../../../components/ConfirmacaoCard/ConfirmacaoCard";
-import Utilitario from "../../../utils/Utilitario";
-import "../../../styles/ListagensPadrao.css";
+import { useRemoteList } from '../../../hooks/useRemoteList';
+import { type JSX, useState } from 'react';
+import Navegacao from '../../../components/Navegacao/Navegacao';
+import Rodape from '../../../components/Rodape/Rodape';
+import PacienteRequests from '../../../fetch/PacienteRequest';
+import type { PacienteDTO } from '../../../dto/PacienteDTO';
+import { useNavigate } from 'react-router-dom';
+import { AlertCard, type AlertVariant } from '../../AlertCard';
+import ConfirmacaoCard from '../../../components/ConfirmacaoCard/ConfirmacaoCard';
+import Utilitario from '../../../utils/Utilitario';
+import '../../../styles/ListagensPadrao.css';
+
+const carregarLista = () => PacienteRequests.obterListaDePacientes();
 
 interface AlertaState {
     variant: AlertVariant;
@@ -16,28 +19,23 @@ interface AlertaState {
 }
 
 function ListagemPacientes(): JSX.Element {
-    const [pacientes, setPacientes] = useState<PacienteDTO[]>([]);
-    const [erro, setErro] = useState<boolean>(false);
-    const [pacienteParaExcluir, setPacienteParaExcluir] = useState<{ id: number; nome: string } | null>(null);
+    const {
+        items: pacientes,
+        setItems: setPacientes,
+        error: erro,
+        reload: buscarPacientes,
+    } = useRemoteList<PacienteDTO>(carregarLista);
+    const [pacienteParaExcluir, setPacienteParaExcluir] = useState<{
+        id: number;
+        nome: string;
+    } | null>(null);
     const [alerta, setAlerta] = useState<AlertaState | null>(null);
     const navigate = useNavigate();
 
-    const buscarPacientes = async () => {
-        setErro(false);
-        try {
-            const listaDePacientes = await PacienteRequests.obterListaDePacientes();
-            if (listaDePacientes) {
-                setPacientes(listaDePacientes);
-            } else {
-                setPacientes([]);
-            }
-        } catch (error) {
-            console.error(`Erro ao buscar pacientes. ${error}`);
-            setErro(true);
-        }
-    };
-
-    const solicitarRemocaoPaciente = (id_paciente: number | undefined, nome: string) => {
+    const solicitarRemocaoPaciente = (
+        id_paciente: number | undefined,
+        nome: string,
+    ) => {
         if (id_paciente === undefined) {
             return;
         }
@@ -48,28 +46,43 @@ function ListagemPacientes(): JSX.Element {
     const handleRemoverPaciente = async () => {
         if (!pacienteParaExcluir) return;
 
-        const sucesso = await PacienteRequests.removerPaciente(pacienteParaExcluir.id);
-        setPacienteParaExcluir(null);
-        if (sucesso) {
-            setAlerta({
-                variant: "success",
-                title: "Paciente removido",
-                message: "O cadastro do paciente foi removido com sucesso.",
-            });
+        try {
+            const sucesso = await PacienteRequests.removerPaciente(
+                pacienteParaExcluir.id,
+            );
+            setPacienteParaExcluir(null);
+            if (sucesso) {
+                setAlerta({
+                    variant: 'success',
+                    title: 'Paciente removido',
+                    message: 'O cadastro do paciente foi removido com sucesso.',
+                });
 
-            setPacientes(prev => prev.filter(paciente => paciente.idPaciente !== pacienteParaExcluir.id));
-        } else {
+                setPacientes((prev) =>
+                    prev.filter(
+                        (paciente) =>
+                            paciente.idPaciente !== pacienteParaExcluir.id,
+                    ),
+                );
+            } else {
+                setAlerta({
+                    variant: 'danger',
+                    title: 'Erro de remoção',
+                    message: 'Não foi possível remover o paciente.',
+                });
+            }
+        } catch (error) {
+            setPacienteParaExcluir(null);
             setAlerta({
-                variant: "danger",
-                title: "Erro de remoção",
-                message: "Não foi possível remover o paciente.",
+                variant: 'danger',
+                title: 'Não foi possível concluir',
+                message:
+                    error instanceof Error
+                        ? error.message
+                        : 'Falha na operação.',
             });
         }
     };
-
-    useEffect(() => {
-        buscarPacientes();
-    }, []);
 
     return (
         <div className="medflow-list-wrapper">
@@ -88,7 +101,7 @@ function ListagemPacientes(): JSX.Element {
             {pacienteParaExcluir && (
                 <ConfirmacaoCard
                     titulo="Remover paciente?"
-                    mensagem={`O cadastro de ${pacienteParaExcluir.nome} será removido permanentemente.`}
+                    mensagem={`O cadastro de ${pacienteParaExcluir.nome} será desativado. Consultas futuras devem ser canceladas antes.`}
                     onCancelar={() => setPacienteParaExcluir(null)}
                     onConfirmar={handleRemoverPaciente}
                 />
@@ -97,9 +110,11 @@ function ListagemPacientes(): JSX.Element {
             <main className="main-content">
                 <div className="page-header">
                     <h1>Pacientes Cadastrados</h1>
-                    <a href="/cadastro/paciente" className="btn-novo">
-                        + Novo Paciente
-                    </a>
+                    {localStorage.getItem('role') === 'ADMIN' && (
+                        <a href="/cadastro/paciente" className="btn-novo">
+                            + Novo Paciente
+                        </a>
+                    )}
                 </div>
 
                 <div className="table-container">
@@ -118,11 +133,20 @@ function ListagemPacientes(): JSX.Element {
                                     <td colSpan={4}>
                                         <div className="error-state">
                                             <div className="error-icon">⚠️</div>
-                                            <div className="error-title">Serviço Indisponível</div>
-                                            <div className="error-message">
-                                                Não foi possível conectar ao servidor. Verifique sua conexão ou tente novamente mais tarde.
+                                            <div className="error-title">
+                                                Serviço Indisponível
                                             </div>
-                                            <button className="btn-retry" onClick={buscarPacientes}>Tentar Novamente</button>
+                                            <div className="error-message">
+                                                Não foi possível conectar ao
+                                                servidor. Verifique sua conexão
+                                                ou tente novamente mais tarde.
+                                            </div>
+                                            <button
+                                                className="btn-retry"
+                                                onClick={buscarPacientes}
+                                            >
+                                                Tentar Novamente
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -132,20 +156,66 @@ function ListagemPacientes(): JSX.Element {
                                         <td>
                                             <div className="item-box">
                                                 <div className="avatar-icon">
-                                                    {paciente.nome.charAt(0).toUpperCase()}
+                                                    {paciente.nome
+                                                        .charAt(0)
+                                                        .toUpperCase()}
                                                 </div>
-                                                <span className="text-bold">{paciente.nome}</span>
+                                                <span className="text-bold">
+                                                    {paciente.nome}
+                                                </span>
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="info-tag">{Utilitario.formatarCpf(paciente.cpf)}</span>
+                                            <span className="info-tag">
+                                                {Utilitario.formatarCpf(
+                                                    paciente.cpf,
+                                                )}
+                                            </span>
                                         </td>
-                                        <td>{paciente.telefone ? Utilitario.formatarTelefone(paciente.telefone) : "Não informado"}</td>
+                                        <td>
+                                            {paciente.telefone
+                                                ? Utilitario.formatarTelefone(
+                                                      paciente.telefone,
+                                                  )
+                                                : 'Não informado'}
+                                        </td>
                                         <td>
                                             <div className="btn-group">
-                                                <button className="btn-minimal primary" onClick={(() => navigate(`/detalhes/paciente/${paciente.idPaciente}`))}>Detalhes</button>
-                                                <button className="btn-minimal secondary" onClick={() => navigate(`/atualizar/paciente/${paciente.idPaciente}`)}>Atualizar</button>
-                                                <button className="btn-minimal danger" onClick={() => solicitarRemocaoPaciente(paciente.idPaciente, paciente.nome)}>Remover</button>
+                                                <button
+                                                    className="btn-minimal primary"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/detalhes/paciente/${paciente.idPaciente}`,
+                                                        )
+                                                    }
+                                                >
+                                                    Detalhes
+                                                </button>
+                                                <button
+                                                    className="btn-minimal secondary"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/atualizar/paciente/${paciente.idPaciente}`,
+                                                        )
+                                                    }
+                                                >
+                                                    Atualizar
+                                                </button>
+                                                {localStorage.getItem(
+                                                    'role',
+                                                ) === 'ADMIN' && (
+                                                    <button
+                                                        className="btn-minimal danger"
+                                                        onClick={() =>
+                                                            solicitarRemocaoPaciente(
+                                                                paciente.idPaciente,
+                                                                paciente.nome,
+                                                            )
+                                                        }
+                                                    >
+                                                        Remover
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
