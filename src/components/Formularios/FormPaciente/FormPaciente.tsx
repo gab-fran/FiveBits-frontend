@@ -244,18 +244,18 @@ function FormPaciente(): JSX.Element {
                                         </div>
                                     </div>
                                 </div>
+
+                                <AccountFields
+                                    value={credenciais}
+                                    onChange={setCredenciais}
+                                    errors={validation.errors}
+                                    fieldProps={(name) =>
+                                        validation.field(name, validarFormulario)
+                                    }
+                                />
                             </div>
                         </div>
                     </Card>
-
-                    <AccountFields
-                        value={credenciais}
-                        onChange={setCredenciais}
-                        errors={validation.errors}
-                        fieldProps={(name) =>
-                            validation.field(name, validarFormulario)
-                        }
-                    />
                     {/* Botões */}
                     <div className={styles.buttonGroup}>
                         <button

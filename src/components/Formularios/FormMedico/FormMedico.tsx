@@ -84,8 +84,8 @@ function FormMedico({ idMedico }: FormMedicoProps): JSX.Element {
                 name === 'crm'
                     ? Utilitario.formatarCrm(value)
                     : name === 'valorConsulta'
-                      ? Number(value)
-                      : value,
+                        ? Number(value)
+                        : value,
         }));
     };
 
@@ -314,20 +314,20 @@ function FormMedico({ idMedico }: FormMedicoProps): JSX.Element {
                                         </div>
                                     </div>
                                 </div>
+
+                                {!modoEdicao && (
+                                    <AccountFields
+                                        value={credenciais}
+                                        onChange={setCredenciais}
+                                        errors={validation.errors}
+                                        fieldProps={(name) =>
+                                            validation.field(name, validarFormulario)
+                                        }
+                                    />
+                                )}
                             </div>
                         </div>
                     </Card>
-
-                    {!modoEdicao && (
-                        <AccountFields
-                            value={credenciais}
-                            onChange={setCredenciais}
-                            errors={validation.errors}
-                            fieldProps={(name) =>
-                                validation.field(name, validarFormulario)
-                            }
-                        />
-                    )}
                     {/* Botões */}
                     <div className={styles.buttonGroup}>
                         <button
