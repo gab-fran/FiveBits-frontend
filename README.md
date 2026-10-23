@@ -5,7 +5,9 @@ React, TypeScript, Vite e PrimeReact preservados. Node 24 recomendado.
 
 ```sh
 npm ci
-VITE_SERVER_URL=http://localhost:3333 npm run dev
+cp .env.example .env
+# Ajuste VITE_SERVER_URL no .env, se necessário.
+npm run dev
 npm run build
 npm run lint
 ```
